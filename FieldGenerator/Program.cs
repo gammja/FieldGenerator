@@ -10,50 +10,56 @@ namespace FieldGenerator
     {
         static void Main()
         {
-            var targetClass = new CodeTypeDeclaration("CodeDOMCreatedClass");
-            targetClass.IsClass = true;
-            targetClass.TypeAttributes = TypeAttributes.Public | TypeAttributes.Sealed;
+            var className = "SpDataRow";
+            var cls = new CodeTypeDeclaration(className);
+            cls.IsClass = true;
+            cls.IsPartial = true;
+            cls.TypeAttributes = TypeAttributes.Public;
 
-            var targetUnit = new CodeCompileUnit();
-            var ns = GenerateNameSpace(targetClass);
-            targetUnit.Namespaces.Add(ns);
+            var unit = new CodeCompileUnit();
 
-            var field = GenerateField("_width", typeof(double));
-            targetClass.Members.Add(field);
+            var nsName = "FieldGenerator";
+            var ns = new CodeNamespace(nsName);
+            ns.Imports.Add(new CodeNamespaceImport("System"));
+            ns.Types.Add(cls);
+            unit.Namespaces.Add(ns);
+
+            var field = GenerateField("_age", typeof(double));
+            cls.Members.Add(field);
 
             var property = GenerateProperty(field);
-            targetClass.Members.Add(property);
+            cls.Members.Add(property);
 
-            GenerateCSharpCode(targetUnit, "SampleCode.cs");
-        }
-
-        private static CodeNamespace GenerateNameSpace(CodeTypeDeclaration targetClass)
-        {
-            var ns = new CodeNamespace("CodeDOMSample");
-            ns.Imports.Add(new CodeNamespaceImport("System"));
-            ns.Types.Add(targetClass);
-            return ns;
+            GenerateCSharpCode(unit, "SpDataRow.cs");
         }
 
         private static CodeMemberField GenerateField(string name, Type type)
         {
-            CodeMemberField widthValueField = new CodeMemberField();
-            widthValueField.Attributes = MemberAttributes.Private;
-            widthValueField.Name = name;
-            widthValueField.Type = new CodeTypeReference(type);
-            return widthValueField;
+            CodeMemberField field = new CodeMemberField();
+            field.Attributes = MemberAttributes.Private;
+            field.Name = name;
+            field.Type = new CodeTypeReference(type);
+            return field;
         }
 
         private static CodeTypeMember GenerateProperty(CodeMemberField field)
         {
-            CodeMemberProperty widthProperty = new CodeMemberProperty();
-            widthProperty.Attributes = MemberAttributes.Public | MemberAttributes.Final;
-            widthProperty.Name = GetName(field);
-            widthProperty.HasGet = true;
-            widthProperty.Type = field.Type;
-            widthProperty.GetStatements.Add(new CodeMethodReturnStatement(
+            CodeMemberProperty property = new CodeMemberProperty();
+            property.Attributes = MemberAttributes.Public | MemberAttributes.Final;
+            property.Name = GetName(field);
+            property.Type = field.Type;
+
+            property.HasGet = true;
+            property.GetStatements.Add(new CodeMethodReturnStatement(
                 new CodeFieldReferenceExpression(new CodeThisReferenceExpression(), field.Name)));
-            return widthProperty;
+
+            property.HasSet = true;
+            property.SetStatements.Add(
+                new CodeAssignStatement(
+                    new CodeFieldReferenceExpression(new CodeThisReferenceExpression(), field.Name),
+                    new CodePropertySetValueReferenceExpression()));
+
+            return property;
         }
 
         private static string GetName(CodeMemberField field)
@@ -68,14 +74,13 @@ namespace FieldGenerator
             return char.ToUpper(name[0]) + name.Substring(1);
         }
 
-        private static void GenerateCSharpCode(CodeCompileUnit targetUnit, string fileName)
+        private static void GenerateCSharpCode(CodeCompileUnit unit, string fileName)
         {
-            CodeDomProvider provider = CodeDomProvider.CreateProvider("CSharp");
-            CodeGeneratorOptions options = new CodeGeneratorOptions();
-            options.BracingStyle = "C";
-            using (StreamWriter sourceWriter = new StreamWriter(fileName))
+            var provider = CodeDomProvider.CreateProvider("CSharp");
+            var options = new CodeGeneratorOptions {BracingStyle = "C"};
+            using (var writer = new StreamWriter(fileName))
             {
-                provider.GenerateCodeFromCompileUnit(targetUnit, sourceWriter, options);
+                provider.GenerateCodeFromCompileUnit(unit, writer, options);
             }
         }
     }
